@@ -22,10 +22,10 @@ export type Options = {
   maxNumberOfTries: number
 }
 
-let config: Options
-let rootDocument: Document | Element
+let finder__config: Options
+let finder__rootDocument: Document | Element
 
-export function finder(input: Element, options?: Partial<Options>) {
+function _finder__finder(input: Element, options?: Partial<Options>) {
   if (input.nodeType !== Node.ELEMENT_NODE) {
     throw new Error(`Can't generate CSS selector for non-element node type.`)
   }
@@ -44,27 +44,27 @@ export function finder(input: Element, options?: Partial<Options>) {
     maxNumberOfTries: 10000,
   }
 
-  config = {...defaults, ...options}
-  rootDocument = findRootDocument(config.root, defaults)
+  finder__config = {...defaults, ...options}
+  finder__rootDocument = finder__findRootDocument(finder__config.root, defaults)
 
   let path =
-    bottomUpSearch(input, 'all',
-      () => bottomUpSearch(input, 'two',
-        () => bottomUpSearch(input, 'one',
-          () => bottomUpSearch(input, 'none'))))
+    finder__bottomUpSearch(input, 'all',
+      () => finder__bottomUpSearch(input, 'two',
+        () => finder__bottomUpSearch(input, 'one',
+          () => finder__bottomUpSearch(input, 'none'))))
 
   if (path) {
-    const optimized = sort(optimize(path, input))
+    const optimized = finder__sort(finder__optimize(path, input))
     if (optimized.length > 0) {
       path = optimized[0]
     }
-    return selector(path)
+    return finder__selector(path)
   } else {
     throw new Error(`Selector was not found.`)
   }
 }
 
-function findRootDocument(rootNode: Element | Document, defaults: Options) {
+function finder__findRootDocument(rootNode: Element | Document, defaults: Options) {
   if (rootNode.nodeType === Node.DOCUMENT_NODE) {
     return rootNode
   }
@@ -74,7 +74,7 @@ function findRootDocument(rootNode: Element | Document, defaults: Options) {
   return rootNode
 }
 
-function bottomUpSearch(
+function finder__bottomUpSearch(
   input: Element,
   limit: 'all' | 'two' | 'one' | 'none',
   fallback?: () => Path | null
@@ -84,41 +84,41 @@ function bottomUpSearch(
   let current: Element | null = input
   let i = 0
   while (current) {
-    let level: Knot[] = maybe(id(current)) ||
-      maybe(...attr(current)) ||
-      maybe(...classNames(current)) ||
-      maybe(tagName(current)) || [any()]
-    const nth = index(current)
+    let level: Knot[] = finder__maybe(finder__id(current)) ||
+      finder__maybe(...finder__attr(current)) ||
+      finder__maybe(...finder__classNames(current)) ||
+      finder__maybe(finder__tagName(current)) || [finder__any()]
+    const nth = finder__index(current)
     if (limit == 'all') {
       if (nth) {
         level = level.concat(
-          level.filter(dispensableNth).map((node) => nthChild(node, nth))
+          level.filter(finder__dispensableNth).map((node) => finder__nthChild(node, nth))
         )
       }
     } else if (limit == 'two') {
       level = level.slice(0, 1)
       if (nth) {
         level = level.concat(
-          level.filter(dispensableNth).map((node) => nthChild(node, nth))
+          level.filter(finder__dispensableNth).map((node) => finder__nthChild(node, nth))
         )
       }
     } else if (limit == 'one') {
       const [node] = (level = level.slice(0, 1))
-      if (nth && dispensableNth(node)) {
-        level = [nthChild(node, nth)]
+      if (nth && finder__dispensableNth(node)) {
+        level = [finder__nthChild(node, nth)]
       }
     } else if (limit == 'none') {
-      level = [any()]
+      level = [finder__any()]
       if (nth) {
-        level = [nthChild(level[0], nth)]
+        level = [finder__nthChild(level[0], nth)]
       }
     }
     for (let node of level) {
       node.level = i
     }
     stack.push(level)
-    if (stack.length >= config.seedMinLength) {
-      path = findUniquePath(stack, fallback)
+    if (stack.length >= finder__config.seedMinLength) {
+      path = finder__findUniquePath(stack, fallback)
       if (path) {
         break
       }
@@ -127,7 +127,7 @@ function bottomUpSearch(
     i++
   }
   if (!path) {
-    path = findUniquePath(stack, fallback)
+    path = finder__findUniquePath(stack, fallback)
   }
   if (!path && fallback) {
     return fallback()
@@ -135,23 +135,23 @@ function bottomUpSearch(
   return path
 }
 
-function findUniquePath(
+function finder__findUniquePath(
   stack: Knot[][],
   fallback?: () => Path | null
 ): Path | null {
-  const paths = sort(combinations(stack))
-  if (paths.length > config.threshold) {
+  const paths = finder__sort(finder__combinations(stack))
+  if (paths.length > finder__config.threshold) {
     return fallback ? fallback() : null
   }
   for (let candidate of paths) {
-    if (unique(candidate)) {
+    if (finder__unique(candidate)) {
       return candidate
     }
   }
   return null
 }
 
-function selector(path: Path): string {
+function finder__selector(path: Path): string {
   let node = path[0]
   let query = node.name
   for (let i = 1; i < path.length; i++) {
@@ -166,13 +166,13 @@ function selector(path: Path): string {
   return query
 }
 
-function penalty(path: Path): number {
+function finder__penalty(path: Path): number {
   return path.map((node) => node.penalty).reduce((acc, i) => acc + i, 0)
 }
 
-function unique(path: Path) {
-  const css = selector(path)
-  switch (rootDocument.querySelectorAll(css).length) {
+function finder__unique(path: Path) {
+  const css = finder__selector(path)
+  switch (finder__rootDocument.querySelectorAll(css).length) {
     case 0:
       throw new Error(
         `Can't select any node with this selector: ${css}`
@@ -184,9 +184,9 @@ function unique(path: Path) {
   }
 }
 
-function id(input: Element): Knot | null {
+function finder__id(input: Element): Knot | null {
   const elementId = input.getAttribute('id')
-  if (elementId && config.idName(elementId)) {
+  if (elementId && finder__config.idName(elementId)) {
     return {
       name: '#' + CSS.escape(elementId),
       penalty: 0,
@@ -195,9 +195,9 @@ function id(input: Element): Knot | null {
   return null
 }
 
-function attr(input: Element): Knot[] {
+function finder__attr(input: Element): Knot[] {
   const attrs = Array.from(input.attributes).filter((attr) =>
-    config.attr(attr.name, attr.value)
+    finder__config.attr(attr.name, attr.value)
   )
   return attrs.map(
     (attr): Knot => ({
@@ -207,8 +207,8 @@ function attr(input: Element): Knot[] {
   )
 }
 
-function classNames(input: Element): Knot[] {
-  const names = Array.from(input.classList).filter(config.className)
+function finder__classNames(input: Element): Knot[] {
+  const names = Array.from(input.classList).filter(finder__config.className)
   return names.map(
     (name): Knot => ({
       name: '.' + CSS.escape(name),
@@ -217,9 +217,9 @@ function classNames(input: Element): Knot[] {
   )
 }
 
-function tagName(input: Element): Knot | null {
+function finder__tagName(input: Element): Knot | null {
   const name = input.tagName.toLowerCase()
-  if (config.tagName(name)) {
+  if (finder__config.tagName(name)) {
     return {
       name,
       penalty: 2,
@@ -228,14 +228,14 @@ function tagName(input: Element): Knot | null {
   return null
 }
 
-function any(): Knot {
+function finder__any(): Knot {
   return {
     name: '*',
     penalty: 3,
   }
 }
 
-function index(input: Element): number | null {
+function finder__index(input: Element): number | null {
   const parent = input.parentNode
   if (!parent) {
     return null
@@ -257,41 +257,41 @@ function index(input: Element): number | null {
   return i
 }
 
-function nthChild(node: Knot, i: number): Knot {
+function finder__nthChild(node: Knot, i: number): Knot {
   return {
     name: node.name + `:nth-child(${i})`,
     penalty: node.penalty + 1,
   }
 }
 
-function dispensableNth(node: Knot) {
+function finder__dispensableNth(node: Knot) {
   return node.name !== 'html' && !node.name.startsWith('#')
 }
 
-function maybe(...level: (Knot | null)[]): Knot[] | null {
-  const list = level.filter(notEmpty)
+function finder__maybe(...level: (Knot | null)[]): Knot[] | null {
+  const list = level.filter(finder__notEmpty)
   if (list.length > 0) {
     return list
   }
   return null
 }
 
-function notEmpty<T>(value: T | null | undefined): value is T {
+function finder__notEmpty<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined
 }
 
-function* combinations(stack: Knot[][], path: Knot[] = []): Generator<Knot[]> {
+function* finder__combinations(stack: Knot[][], path: Knot[] = []): Generator<Knot[]> {
   if (stack.length > 0) {
     for (let node of stack[0]) {
-      yield* combinations(stack.slice(1, stack.length), path.concat(node))
+      yield* finder__combinations(stack.slice(1, stack.length), path.concat(node))
     }
   } else {
     yield path
   }
 }
 
-function sort(paths: Iterable<Path>): Path[] {
-  return [...paths].sort((a, b) => penalty(a) - penalty(b))
+function finder__sort(paths: Iterable<Path>): Path[] {
+  return [...paths].sort((a, b) => finder__penalty(a) - finder__penalty(b))
 }
 
 type Scope = {
@@ -299,7 +299,7 @@ type Scope = {
   visited: Map<string, boolean>
 }
 
-function* optimize(
+function* finder__optimize(
   path: Path,
   input: Element,
   scope: Scope = {
@@ -307,27 +307,27 @@ function* optimize(
     visited: new Map<string, boolean>(),
   }
 ): Generator<Knot[]> {
-  if (path.length > 2 && path.length > config.optimizedMinLength) {
+  if (path.length > 2 && path.length > finder__config.optimizedMinLength) {
     for (let i = 1; i < path.length - 1; i++) {
-      if (scope.counter > config.maxNumberOfTries) {
+      if (scope.counter > finder__config.maxNumberOfTries) {
         return // Okay At least I tried!
       }
       scope.counter += 1
       const newPath = [...path]
       newPath.splice(i, 1)
-      const newPathKey = selector(newPath)
+      const newPathKey = finder__selector(newPath)
       if (scope.visited.has(newPathKey)) {
         return
       }
-      if (unique(newPath) && same(newPath, input)) {
+      if (finder__unique(newPath) && finder__same(newPath, input)) {
         yield newPath
         scope.visited.set(newPathKey, true)
-        yield* optimize(newPath, input, scope)
+        yield* finder__optimize(newPath, input, scope)
       }
     }
   }
 }
 
-function same(path: Path, input: Element) {
-  return rootDocument.querySelector(selector(path)) === input
+function finder__same(path: Path, input: Element) {
+  return finder__rootDocument.querySelector(finder__selector(path)) === input
 }
